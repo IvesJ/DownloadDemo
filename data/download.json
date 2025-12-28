@@ -1,0 +1,441 @@
+{
+  "exhibitionInfos": [
+    {
+      "id": "exhibition_001",
+      "vehicle": "Generic Vehicle",
+      "coverName": "cover_generic.jpg",
+      "homeVideoName": "home_video.mp4",
+      "qrCodeName": "qrcode_generic.png",
+      "homeResourceZipMD5": "md5_123456",
+      "homeResourceZipUrl": "https://example.com/resources.zip",
+      "featureConfigs": [
+        {
+          "id": 1,
+          "pageType": 1,
+          "mainTitle": "品牌",
+          "subTitle": "品牌故事",
+          "cardBgName": "brand_bg.jpg",
+          "cardResourceZipMD5": "md5_brand_123",
+          "cardResourceZipUrl": "https://example.com/brand_resources.zip",
+          "configTabs": [
+            {
+              "id": "brand_tab",
+              "name": "品牌",
+              "contents": [
+                {
+                  "type": "HORIZONTAL_MEDIA",
+                  "fileInfos": [
+                    {
+                      "fileType": 1,
+                      "fileName": "brand_image_1.jpg",
+                      "mainTitle": "品牌历史",
+                      "subTitle": "品牌发展历程",
+                      "fileMd5": "md5_brand_image_1",
+                      "fileResUrl": "https://example.com/files/brand_image_1.jpg"
+                    },
+                    {
+                      "fileType": 1,
+                      "fileName": "brand_image_2.jpg",
+                      "mainTitle": "设计理念",
+                      "subTitle": "设计哲学",
+                      "fileMd5": "md5_brand_image_2",
+                      "fileResUrl": "https://example.com/files/brand_image_2.jpg"
+                    },
+                    {
+                      "fileType": 1,
+                      "fileName": "brand_image_3.jpg",
+                      "mainTitle": "技术创新",
+                      "subTitle": "技术突破",
+                      "fileMd5": "md5_brand_image_3",
+                      "fileResUrl": "https://example.com/files/brand_image_3.jpg"
+                    },
+                    {
+                      "fileType": 1,
+                      "fileName": "brand_image_4.jpg",
+                      "mainTitle": "品牌荣誉",
+                      "subTitle": "获得的奖项",
+                      "fileMd5": "md5_brand_image_4",
+                      "fileResUrl": "https://example.com/files/brand_image_4.jpg"
+                    }
+                  ]
+                }
+              ],
+              "subTabs": []
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "pageType": 2,
+          "mainTitle": "售价",
+          "subTitle": "车型价格详情",
+          "cardBgName": "price_bg.jpg",
+          "cardResourceZipMD5": "md5_price_456",
+          "cardResourceZipUrl": "https://example.com/price_resources.zip",
+          "configTabs": [
+            {
+              "id": "price_tab",
+              "name": "售价",
+              "contents": [
+                {
+                  "type": "SINGLE_MEDIA",
+                  "fileInfos": [
+                    {
+                      "fileType": 1,
+                      "fileName": "price_chart.jpg",
+                      "mainTitle": "价格详情",
+                      "subTitle": "车型详细价格",
+                      "fileMd5": "md5_price_chart",
+                      "fileResUrl": "https://example.com/files/price_chart.jpg"
+                    }
+                  ]
+                }
+              ],
+              "subTabs": []
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "pageType": 1,
+          "mainTitle": "外观/造型",
+          "subTitle": "设计与造型",
+          "cardBgName": "design_bg.jpg",
+          "cardResourceZipMD5": "md5_design_789",
+          "cardResourceZipUrl": "https://example.com/design_resources.zip",
+          "configTabs": [
+            {
+              "id": "design_tab",
+              "name": "外观/造型",
+              "contents": [],
+              "subTabs": [
+                {
+                  "id": "exterior_tab",
+                  "name": "外观",
+                  "contents": [
+                    {
+                      "type": "SELECT_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "exterior_1.jpg",
+                          "mainTitle": "外观颜色1",
+                          "subTitle": "珍珠白",
+                          "selectIconName": "select_exterior_1.png",
+                          "fileMd5": "md5_exterior_1",
+                          "fileResUrl": "https://example.com/files/exterior_1.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "exterior_2.jpg",
+                          "mainTitle": "外观颜色2",
+                          "subTitle": "深空灰",
+                          "selectIconName": "select_exterior_2.png",
+                          "fileMd5": "md5_exterior_2",
+                          "fileResUrl": "https://example.com/files/exterior_2.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "exterior_3.jpg",
+                          "mainTitle": "外观颜色3",
+                          "subTitle": "天蓝色",
+                          "selectIconName": "select_exterior_3.png",
+                          "fileMd5": "md5_exterior_3",
+                          "fileResUrl": "https://example.com/files/exterior_3.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "exterior_4.jpg",
+                          "mainTitle": "外观颜色4",
+                          "subTitle": "霞光橙",
+                          "selectIconName": "select_exterior_4.png",
+                          "fileMd5": "md5_exterior_4",
+                          "fileResUrl": "https://example.com/files/exterior_4.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "exterior_5.jpg",
+                          "mainTitle": "外观颜色5",
+                          "subTitle": "极光绿",
+                          "selectIconName": "select_exterior_5.png",
+                          "fileMd5": "md5_exterior_5",
+                          "fileResUrl": "https://example.com/files/exterior_5.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "exterior_6.jpg",
+                          "mainTitle": "外观颜色6",
+                          "subTitle": "星云蓝",
+                          "selectIconName": "select_exterior_6.png",
+                          "fileMd5": "md5_exterior_6",
+                          "fileResUrl": "https://example.com/files/exterior_6.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                },
+                {
+                  "id": "interior_tab",
+                  "name": "内饰",
+                  "contents": [
+                    {
+                      "type": "SELECT_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "interior_1.jpg",
+                          "mainTitle": "内饰风格1",
+                          "subTitle": "浅色内饰",
+                          "selectIconName": "select_interior_1.png",
+                          "fileMd5": "md5_interior_1",
+                          "fileResUrl": "https://example.com/files/interior_1.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "interior_2.jpg",
+                          "mainTitle": "内饰风格2",
+                          "subTitle": "深色内饰",
+                          "selectIconName": "select_interior_2.png",
+                          "fileMd5": "md5_interior_2",
+                          "fileResUrl": "https://example.com/files/interior_2.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "interior_3.jpg",
+                          "mainTitle": "内饰风格3",
+                          "subTitle": "棕色内饰",
+                          "selectIconName": "select_interior_3.png",
+                          "fileMd5": "md5_interior_3",
+                          "fileResUrl": "https://example.com/files/interior_3.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "interior_4.jpg",
+                          "mainTitle": "内饰风格4",
+                          "subTitle": "定制内饰",
+                          "selectIconName": "select_interior_4.png",
+                          "fileMd5": "md5_interior_4",
+                          "fileResUrl": "https://example.com/files/interior_4.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "pageType": 2,
+          "mainTitle": "空间",
+          "subTitle": "内部空间设计",
+          "cardBgName": "space_bg.jpg",
+          "cardResourceZipMD5": "md5_space_101",
+          "cardResourceZipUrl": "https://example.com/space_resources.zip",
+          "configTabs": [
+            {
+              "id": "space_tab",
+              "name": "空间",
+              "contents": [],
+              "subTabs": [
+                {
+                  "id": "spacious_tab",
+                  "name": "排排开阔",
+                  "contents": [
+                    {
+                      "type": "SINGLE_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "spacious_space.jpg",
+                          "mainTitle": "宽敞空间",
+                          "subTitle": "前后排宽敞设计",
+                          "fileMd5": "md5_spacious_space",
+                          "fileResUrl": "https://example.com/files/spacious_space.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                },
+                {
+                  "id": "comfort_tab",
+                  "name": "健康舒适",
+                  "contents": [
+                    {
+                      "type": "SINGLE_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "comfort_space.jpg",
+                          "mainTitle": "舒适空间",
+                          "subTitle": "健康舒适的乘坐体验",
+                          "fileMd5": "md5_comfort_space",
+                          "fileResUrl": "https://example.com/files/comfort_space.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                },
+                {
+                  "id": "frunk_tab",
+                  "name": "前备舱",
+                  "contents": [
+                    {
+                      "type": "SINGLE_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "frunk_space.jpg",
+                          "mainTitle": "前备舱空间",
+                          "subTitle": "前备舱储物设计",
+                          "fileMd5": "md5_frunk_space",
+                          "fileResUrl": "https://example.com/files/frunk_space.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                },
+                {
+                  "id": "overview_tab",
+                  "name": "总览",
+                  "contents": [
+                    {
+                      "type": "SINGLE_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "space_overview.jpg",
+                          "mainTitle": "空间总览",
+                          "subTitle": "整体空间设计",
+                          "fileMd5": "md5_space_overview",
+                          "fileResUrl": "https://example.com/files/space_overview.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "pageType": 1,
+          "mainTitle": "驾乘",
+          "subTitle": "驾驶与乘坐体验",
+          "cardBgName": "driving_bg.jpg",
+          "cardResourceZipMD5": "md5_driving_202",
+          "cardResourceZipUrl": "https://example.com/driving_resources.zip",
+          "configTabs": [
+            {
+              "id": "driving_tab",
+              "name": "驾乘",
+              "contents": [],
+              "subTabs": [
+                {
+                  "id": "chassis_tab",
+                  "name": "底盘",
+                  "contents": [
+                    {
+                      "type": "SINGLE_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "chassis_image.jpg",
+                          "mainTitle": "先进底盘",
+                          "subTitle": "高性能底盘技术",
+                          "fileMd5": "md5_chassis_image",
+                          "fileResUrl": "https://example.com/files/chassis_image.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                },
+                {
+                  "id": "lightweight_tab",
+                  "name": "轻量化",
+                  "contents": [
+                    {
+                      "type": "HORIZONTAL_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "lightweight_1.jpg",
+                          "mainTitle": "轻量化材料1",
+                          "subTitle": "碳纤维材料应用",
+                          "fileMd5": "md5_lightweight_1",
+                          "fileResUrl": "https://example.com/files/lightweight_1.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "lightweight_2.jpg",
+                          "mainTitle": "轻量化材料2",
+                          "subTitle": "铝合金结构",
+                          "fileMd5": "md5_lightweight_2",
+                          "fileResUrl": "https://example.com/files/lightweight_2.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "lightweight_3.jpg",
+                          "mainTitle": "轻量化材料3",
+                          "subTitle": "轻质合金轮毂",
+                          "fileMd5": "md5_lightweight_3",
+                          "fileResUrl": "https://example.com/files/lightweight_3.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "lightweight_4.jpg",
+                          "mainTitle": "轻量化材料4",
+                          "subTitle": "减重技术",
+                          "fileMd5": "md5_lightweight_4",
+                          "fileResUrl": "https://example.com/files/lightweight_4.jpg"
+                        },
+                        {
+                          "fileType": 1,
+                          "fileName": "lightweight_5.jpg",
+                          "mainTitle": "轻量化材料5",
+                          "subTitle": "综合轻量化设计",
+                          "fileMd5": "md5_lightweight_5",
+                          "fileResUrl": "https://example.com/files/lightweight_5.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                },
+                {
+                  "id": "driving_overview_tab",
+                  "name": "总览",
+                  "contents": [
+                    {
+                      "type": "SINGLE_MEDIA",
+                      "fileInfos": [
+                        {
+                          "fileType": 1,
+                          "fileName": "driving_overview.jpg",
+                          "mainTitle": "驾乘总览",
+                          "subTitle": "整体驾乘体验",
+                          "fileMd5": "md5_driving_overview",
+                          "fileResUrl": "https://example.com/files/driving_overview.jpg"
+                        }
+                      ]
+                    }
+                  ],
+                  "subTabs": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

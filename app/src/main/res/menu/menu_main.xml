@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <item
+        android:id="@+id/action_check_updates"
+        android:icon="@android:drawable/ic_menu_rotate"
+        android:title="检查更新"
+        app:showAsAction="ifRoom" />
+
+    <item
+        android:id="@+id/action_cleanup_files"
+        android:icon="@android:drawable/ic_menu_delete"
+        android:title="清理存储"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_auto_download"
+        android:icon="@android:drawable/stat_sys_download"
+        android:title="自动下载全部"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_stop_auto_download"
+        android:title="停止自动下载"
+        app:showAsAction="never" />
+
+</menu>
