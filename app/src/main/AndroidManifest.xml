@@ -13,6 +13,10 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- 跨用户访问权限 (系统应用) -->
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- 开机自启动权限 -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -46,11 +50,12 @@
             </intent-filter>
         </activity>
 
-        <!-- 自动下载服务 -->
+        <!-- 自动下载服务 (singleUser: 所有用户共享同一服务实例) -->
         <service
             android:name=".service.AutoDownloadService"
             android:enabled="true"
             android:exported="false"
+            android:singleUser="true"
             android:foregroundServiceType="dataSync" />
 
         <!-- 开机广播接收器 -->
@@ -63,6 +68,14 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <!-- 下载状态 ContentProvider (singleUser: 跨用户数据访问) -->
+        <provider
+            android:name=".data.provider.DownloadStateProvider"
+            android:authorities="com.ace.downloaddemo.provider.download"
+            android:enabled="true"
+            android:exported="true"
+            android:singleUser="true" />
 
     </application>
 

@@ -15,7 +15,7 @@ data class DownloadConfig(
      * 是否在下载前检查磁盘空间
      * 默认：true
      */
-    val checkDiskSpace: Boolean = true,
+    val checkDiskSpace: Boolean = false,
 
     /**
      * 是否在下载后验证MD5

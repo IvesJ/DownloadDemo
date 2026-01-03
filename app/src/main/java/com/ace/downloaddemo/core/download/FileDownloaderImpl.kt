@@ -1,6 +1,9 @@
 package com.ace.downloaddemo.core.download
 
+import android.util.Log
 import com.ace.downloaddemo.core.MockConfig
+import com.ace.downloaddemo.core.storage.FileManager
+import com.ace.downloaddemo.core.validation.MD5Validator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -16,7 +19,14 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class FileDownloaderImpl @Inject constructor() : FileDownloader {
+class FileDownloaderImpl @Inject constructor(
+    private val fileManager: FileManager,
+    private val md5Validator: MD5Validator
+) : FileDownloader {
+
+    companion object {
+        private const val TAG = "FileDownloaderImpl"
+    }
 
     private val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -32,6 +42,16 @@ class FileDownloaderImpl @Inject constructor() : FileDownloader {
         savePath: String,
         md5: String,
         onProgress: (downloaded: Long, total: Long) -> Unit
+    ): DownloadResult {
+        return downloadWithConfig(url, savePath, md5, DownloadConfig.DEFAULT, onProgress)
+    }
+
+    override suspend fun downloadWithConfig(
+        url: String,
+        savePath: String,
+        md5: String,
+        config: DownloadConfig,
+        onProgress: (downloaded: Long, total: Long) -> Unit
     ): DownloadResult = withContext(Dispatchers.IO) {
         try {
             // 检查是否已取消
@@ -40,16 +60,45 @@ class FileDownloaderImpl @Inject constructor() : FileDownloader {
                 return@withContext DownloadResult.Canceled
             }
 
+            val file = File(savePath)
+            val fileName = file.name
+
+            // ========== 步骤1: 检查文件是否已存在且有效 ==========
+            if (config.checkExistingFile && !config.forceRedownload) {
+                if (fileManager.checkFileExistsAndValid(fileName, md5)) {
+                    Log.i(TAG, "⏩ 文件已存在且有效，跳过下载: $fileName")
+                    return@withContext DownloadResult.Success(savePath)
+                }
+            }
+
+            // ========== 步骤2: 检查磁盘空间 ==========
+            if (config.checkDiskSpace) {
+                // 使用文件已有大小或默认估算10MB
+                val estimatedSize = if (file.exists()) file.length() else 10 * 1024 * 1024L
+                val availableSpace = fileManager.getAvailableDiskSpace()
+                val requiredSpace = estimatedSize + config.reservedDiskSpace
+
+                if (availableSpace < requiredSpace) {
+                    val errorMsg = "磁盘空间不足: 需要${requiredSpace / 1024 / 1024}MB, 可用${availableSpace / 1024 / 1024}MB"
+                    Log.e(TAG, "❌ $errorMsg")
+                    return@withContext DownloadResult.Failed(errorMsg)
+                }
+            }
+
+            // ========== 步骤3: 执行下载 ==========
+
             // ==================== 模拟下载模式 ====================
             // 由于download.json中的URL和MD5都是mock数据，无法真实下载
             // 这里模拟下载过程，但保留所有逻辑检查
             // 配置开关: MockConfig.MOCK_DOWNLOAD_MODE
             if (MockConfig.MOCK_DOWNLOAD_MODE) {
-                return@withContext mockDownload(url, savePath, onProgress)
-            }
-            // ========================================================
-
-            val file = File(savePath)
+                val mockResult = mockDownload(url, savePath, onProgress)
+                // 如果mock下载失败或取消，直接返回
+                if (mockResult !is DownloadResult.Success) {
+                    return@withContext mockResult
+                }
+                // 如果成功，继续执行MD5校验（步骤4）
+            } else {
             val tempFile = File("$savePath.downloading")
 
             // 确保父目录存在
@@ -130,7 +179,32 @@ class FileDownloaderImpl @Inject constructor() : FileDownloader {
                 }
                 tempFile.renameTo(file)
             }
+            }
+            // ========================================================
 
+            // ========== 步骤4: MD5校验 ==========
+            if (config.validateMd5AfterDownload && md5.isNotEmpty()) {
+                Log.d(TAG, "🔐 开始MD5校验: $fileName")
+
+                if (md5Validator.validate(file, md5)) {
+                    Log.i(TAG, "✅ MD5校验通过: $fileName")
+                    return@withContext DownloadResult.Success(savePath)
+                } else {
+                    val actualMd5 = md5Validator.calculateMD5(file)
+                    val errorMsg = "MD5校验失败: 期望$md5, 实际$actualMd5"
+                    Log.e(TAG, "❌ $errorMsg: $fileName")
+
+                    // 根据配置决定是否删除文件
+                    if (config.deleteFileOnMD5Failure) {
+                        file.delete()
+                        Log.d(TAG, "🗑️ 已删除校验失败的文件: $fileName")
+                    }
+
+                    return@withContext DownloadResult.Failed(errorMsg)
+                }
+            }
+
+            // 如果不需要MD5校验，直接返回成功
             DownloadResult.Success(savePath)
 
         } catch (e: CancellationException) {

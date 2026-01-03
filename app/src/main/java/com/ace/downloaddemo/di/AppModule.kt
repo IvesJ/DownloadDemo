@@ -35,11 +35,30 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDownloadDatabase(@ApplicationContext context: Context): DownloadDatabase {
+        // 系统应用跨用户共享数据库方案：
+        // 方案1: 使用设备加密存储 (Device Protected Storage)，所有用户共享
+        // 方案2: 使用应用内部存储 + 系统权限
+
+        // 这里使用设备加密存储，确保数据在多用户间共享且不会因用户切换而隔离
+        val deviceContext = context.createDeviceProtectedStorageContext()
+
+        // 创建共享数据库目录
+        val dbDir = java.io.File(deviceContext.filesDir, "SharedDownloads")
+        if (!dbDir.exists()) {
+            val created = dbDir.mkdirs()
+            android.util.Log.i("AppModule", "创建数据库目录: ${dbDir.absolutePath}, 结果: $created")
+        }
+
+        val dbFile = java.io.File(dbDir, "download_database.db")
+        android.util.Log.i("AppModule", "数据库路径: ${dbFile.absolutePath}")
+
         return Room.databaseBuilder(
             context,
             DownloadDatabase::class.java,
-            "download_database"
-        ).build()
+            dbFile.absolutePath
+        )
+            .fallbackToDestructiveMigration()  // 简化起见，使用破坏性迁移（生产环境应使用Migration）
+            .build()
     }
 
     @Provides

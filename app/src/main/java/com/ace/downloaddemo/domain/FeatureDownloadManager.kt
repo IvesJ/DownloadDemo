@@ -1,13 +1,18 @@
 package com.ace.downloaddemo.domain
 
+import android.content.Context
 import android.util.Log
+import com.ace.downloaddemo.core.download.DownloadConfig
 import com.ace.downloaddemo.core.download.DownloadResult
 import com.ace.downloaddemo.core.download.DownloadTask
 import com.ace.downloaddemo.core.download.DownloadWorker
 import com.ace.downloaddemo.core.storage.FileManager
 import com.ace.downloaddemo.core.validation.MD5Validator
+import com.ace.downloaddemo.data.local.DownloadDao
 import com.ace.downloaddemo.data.model.FileInfo
+import com.ace.downloaddemo.data.provider.DownloadStateProvider
 import com.ace.downloaddemo.domain.model.FeatureDownloadState
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,9 +23,11 @@ import javax.inject.Singleton
 
 @Singleton
 class FeatureDownloadManager @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val downloadWorker: DownloadWorker,
     private val fileManager: FileManager,
-    private val md5Validator: MD5Validator
+    private val md5Validator: MD5Validator,
+    private val downloadDao: DownloadDao
 ) {
 
     companion object {
@@ -29,6 +36,66 @@ class FeatureDownloadManager @Inject constructor(
 
     // 存储每个Feature的下载状态
     private val featureStates = ConcurrentHashMap<Int, MutableStateFlow<FeatureDownloadState>>()
+
+    /**
+     * 更新Feature状态（同时更新内存和数据库）
+     */
+    private suspend fun updateFeatureState(featureId: Int, state: FeatureDownloadState) {
+        // 更新内存状态
+        val stateFlow = featureStates.getOrPut(featureId) {
+            MutableStateFlow(FeatureDownloadState.Idle)
+        }
+        stateFlow.value = state
+
+        // 持久化到数据库
+        val entity = when (state) {
+            is FeatureDownloadState.Idle -> {
+                com.ace.downloaddemo.data.local.DownloadStateEntity(
+                    featureId = featureId,
+                    stateType = com.ace.downloaddemo.data.local.DownloadStateEntity.STATE_IDLE
+                )
+            }
+            is FeatureDownloadState.Downloading -> {
+                com.ace.downloaddemo.data.local.DownloadStateEntity(
+                    featureId = featureId,
+                    stateType = com.ace.downloaddemo.data.local.DownloadStateEntity.STATE_DOWNLOADING,
+                    progress = state.progress,
+                    currentFile = state.currentFile,
+                    completedFiles = state.completedFiles,
+                    totalFiles = state.totalFiles
+                )
+            }
+            is FeatureDownloadState.Completed -> {
+                com.ace.downloaddemo.data.local.DownloadStateEntity(
+                    featureId = featureId,
+                    stateType = com.ace.downloaddemo.data.local.DownloadStateEntity.STATE_COMPLETED,
+                    progress = 1.0f
+                )
+            }
+            is FeatureDownloadState.Failed -> {
+                com.ace.downloaddemo.data.local.DownloadStateEntity(
+                    featureId = featureId,
+                    stateType = com.ace.downloaddemo.data.local.DownloadStateEntity.STATE_FAILED,
+                    error = state.error,
+                    failedFile = state.failedFile
+                )
+            }
+            is FeatureDownloadState.Canceled -> {
+                com.ace.downloaddemo.data.local.DownloadStateEntity(
+                    featureId = featureId,
+                    stateType = com.ace.downloaddemo.data.local.DownloadStateEntity.STATE_CANCELED
+                )
+            }
+        }
+        downloadDao.insertOrUpdateState(entity)
+
+        // 通过 ContentProvider 通知所有观察者（跨用户）
+        context.contentResolver.notifyChange(
+            DownloadStateProvider.CONTENT_URI,
+            null
+        )
+        Log.d(TAG, "📡 通知 ContentProvider 数据已更新: Feature #$featureId")
+    }
 
     /**
      * 获取Feature的下载状态Flow
@@ -52,24 +119,12 @@ class FeatureDownloadManager @Inject constructor(
             MutableStateFlow(FeatureDownloadState.Idle)
         }
 
-        // 检查磁盘空间（简单估算：每个文件平均10MB）
-        val estimatedSize = files.size * 10 * 1024 * 1024L
-        Log.d(TAG, "💾 估算需要空间: ${estimatedSize / 1024 / 1024}MB")
-
-        if (!fileManager.hasEnoughSpace(estimatedSize)) {
-            Log.e(TAG, "❌ 磁盘空间不足，Feature #$featureId 下载失败")
-            stateFlow.value = FeatureDownloadState.Failed("磁盘空间不足")
-            return
-        }
-
-        Log.i(TAG, "✅ 磁盘空间检查通过")
-
-        stateFlow.value = FeatureDownloadState.Downloading(
+        updateFeatureState(featureId, FeatureDownloadState.Downloading(
             progress = 0f,
             currentFile = "",
             completedFiles = 0,
             totalFiles = files.size
-        )
+        ))
 
         val totalFiles = files.size
         var completedFiles = 0
@@ -81,28 +136,14 @@ class FeatureDownloadManager @Inject constructor(
             Log.d(TAG, "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             Log.i(TAG, "📄 [${index + 1}/$totalFiles] ${file.fileName}")
 
-            // 检查文件是否已存在且MD5正确
-            Log.d(TAG, "🔍 检查文件是否已存在...")
-            if (fileManager.checkFileExistsAndValid(file.fileName, file.fileMd5)) {
-                completedFiles++
-                Log.i(TAG, "⏩ 文件已存在且有效，跳过下载: ${file.fileName}")
-                stateFlow.value = FeatureDownloadState.Downloading(
-                    progress = completedFiles.toFloat() / totalFiles,
-                    currentFile = file.fileName,
-                    completedFiles = completedFiles,
-                    totalFiles = totalFiles
-                )
-                continue
-            }
-
             // 更新状态：开始下载当前文件
             Log.i(TAG, "📥 开始下载: ${file.fileName}")
-            stateFlow.value = FeatureDownloadState.Downloading(
+            updateFeatureState(featureId, FeatureDownloadState.Downloading(
                 progress = completedFiles.toFloat() / totalFiles,
                 currentFile = file.fileName,
                 completedFiles = completedFiles,
                 totalFiles = totalFiles
-            )
+            ))
 
             // 下载文件
             val filePath = fileManager.getFilePath(file.fileName)
@@ -129,44 +170,32 @@ class FeatureDownloadManager @Inject constructor(
                 )
             )
 
-            when (result) {
-                is DownloadResult.Success -> {
-                    Log.i(TAG, "✓ 下载完成: ${file.fileName}")
-
-                    // MD5校验
-                    Log.d(TAG, "🔐 开始MD5校验...")
-                    val downloadedFile = File(result.path)
-                    if (md5Validator.validate(downloadedFile, file.fileMd5)) {
-                        completedFiles++
-                        Log.i(TAG, "✅ 文件校验成功: ${file.fileName}")
-                        Log.i(TAG, "📊 进度: $completedFiles/$totalFiles (${completedFiles * 100 / totalFiles}%)")
-                    } else {
-                        Log.e(TAG, "❌ MD5校验失败: ${file.fileName}")
-                        Log.e(TAG, "💔 Feature #$featureId 下载失败")
-                        stateFlow.value = FeatureDownloadState.Failed(
-                            error = "MD5校验失败",
-                            failedFile = file.fileName
-                        )
-                        return
-                    }
-                }
-                is DownloadResult.Failed -> {
-                    Log.e(TAG, "❌ 下载失败: ${file.fileName}")
-                    Log.e(TAG, "💥 错误: ${result.error}")
-                    Log.e(TAG, "💔 Feature #$featureId 下载失败")
-                    stateFlow.value = FeatureDownloadState.Failed(
-                        error = result.error,
-                        failedFile = file.fileName
-                    )
-                    return
-                }
-                is DownloadResult.Canceled -> {
-                    Log.w(TAG, "⚠️ 下载已取消: ${file.fileName}")
-                    Log.w(TAG, "🚫 Feature #$featureId 下载取消")
-                    stateFlow.value = FeatureDownloadState.Canceled
-                    return
-                }
+        // 处理下载结果
+        when (result) {
+            is DownloadResult.Success -> {
+                completedFiles++
+                Log.i(TAG, "✅ 文件下载成功: ${file.fileName}")
+                Log.i(TAG, "📊 进度: $completedFiles/$totalFiles (${completedFiles * 100 / totalFiles}%)")
             }
+
+            is DownloadResult.Failed -> {
+                Log.e(TAG, "❌ 下载失败: ${file.fileName}")
+                Log.e(TAG, "💥 错误: ${result.error}")
+                Log.e(TAG, "💔 Feature #$featureId 下载失败")
+                updateFeatureState(featureId, FeatureDownloadState.Failed(
+                    error = result.error,
+                    failedFile = file.fileName
+                ))
+                return
+            }
+
+            is DownloadResult.Canceled -> {
+                Log.w(TAG, "⚠️ 下载已取消: ${file.fileName}")
+                Log.w(TAG, "🚫 Feature #$featureId 下载取消")
+                updateFeatureState(featureId, FeatureDownloadState.Canceled)
+                return
+            }
+        }
         }
 
         // 所有文件下载完成
@@ -174,7 +203,7 @@ class FeatureDownloadManager @Inject constructor(
         Log.i(TAG, "🎉 Feature #$featureId 所有文件下载完成！")
         Log.i(TAG, "✅ 共完成 $completedFiles 个文件")
         Log.i(TAG, "════════════════════════════════════════")
-        stateFlow.value = FeatureDownloadState.Completed
+        updateFeatureState(featureId, FeatureDownloadState.Completed)
     }
 
     /**
@@ -190,17 +219,16 @@ class FeatureDownloadManager @Inject constructor(
      */
     suspend fun cancelFeature(featureId: Int) {
         Log.w(TAG, "🚫 取消下载 Feature #$featureId")
-        val stateFlow = featureStates[featureId]
-        stateFlow?.value = FeatureDownloadState.Canceled
+        updateFeatureState(featureId, FeatureDownloadState.Canceled)
         downloadWorker.cancelAll()
     }
 
     /**
      * 重置Feature状态
      */
-    fun resetFeatureState(featureId: Int) {
+    suspend fun resetFeatureState(featureId: Int) {
         Log.d(TAG, "🔄 重置 Feature #$featureId 状态")
-        featureStates[featureId]?.value = FeatureDownloadState.Idle
+        updateFeatureState(featureId, FeatureDownloadState.Idle)
     }
 
     /**
@@ -281,10 +309,7 @@ class FeatureDownloadManager @Inject constructor(
         // 2. 如果所有文件都是最新的，无需更新
         if (updateResult.filesToDownload.isEmpty()) {
             Log.i(TAG, "✅ Feature #$featureId 所有文件已是最新，无需更新")
-            val stateFlow = featureStates.getOrPut(featureId) {
-                MutableStateFlow(FeatureDownloadState.Idle)
-            }
-            stateFlow.value = FeatureDownloadState.Completed
+            updateFeatureState(featureId, FeatureDownloadState.Completed)
             return
         }
 

@@ -17,6 +17,23 @@ interface FileDownloader {
     ): DownloadResult
 
     /**
+     * 带配置的下载文件
+     * @param url 下载URL
+     * @param savePath 保存路径
+     * @param md5 文件MD5（用于校验，可选）
+     * @param config 下载配置
+     * @param onProgress 进度回调
+     * @return 下载结果
+     */
+    suspend fun downloadWithConfig(
+        url: String,
+        savePath: String,
+        md5: String,
+        config: DownloadConfig,
+        onProgress: (downloaded: Long, total: Long) -> Unit
+    ): DownloadResult
+
+    /**
      * 暂停下载
      */
     suspend fun pause(url: String)

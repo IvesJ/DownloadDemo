@@ -18,10 +18,11 @@ class DownloadWorker @Inject constructor(
     suspend fun downloadFile(task: DownloadTask): DownloadResult {
         semaphore.acquire()
         return try {
-            downloader.download(
+            downloader.downloadWithConfig(
                 url = task.url,
                 savePath = task.savePath,
                 md5 = task.md5,
+                config = task.config,
                 onProgress = task.onProgress
             )
         } finally {

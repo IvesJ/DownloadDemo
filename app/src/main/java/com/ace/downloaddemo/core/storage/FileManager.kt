@@ -25,27 +25,26 @@ class FileManager @Inject constructor(
 
     /**
      * 获取下载目录
-     * 优先使用外部存储的应用私有目录，不需要额外权限
+     * 使用所有用户共享的外部存储目录
+     * 注意：需要MANAGE_EXTERNAL_STORAGE权限（Android 11+）或WRITE_EXTERNAL_STORAGE权限
      */
     fun getDownloadDir(): File {
-        // Android 10+ 使用应用私有目录，无需存储权限
-        val dir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        } else {
-            // 低版本也使用应用私有目录
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        // 使用设备共享的外部存储根目录，所有用户可访问
+        // 路径示例：/storage/emulated/0/Android/data/com.ace.downloaddemo/files/SharedDownloads
+        // 注意：emulated/0 是所有用户的共享存储，不会因用户切换而改变
+        val sharedStorage = File(Environment.getExternalStorageDirectory(),
+            "Android/data/${context.packageName}/files/SharedDownloads")
+
+        // 备选方案：如果需要更通用的共享目录
+        // val sharedStorage = File("/data/media/0/Android/data/${context.packageName}/files/SharedDownloads")
+
+        if (!sharedStorage.exists()) {
+            sharedStorage.mkdirs()
+            Log.d(TAG, "📁 创建共享下载目录: ${sharedStorage.absolutePath}")
         }
 
-        // 如果外部存储不可用，使用内部存储
-        val downloadDir = dir ?: File(context.filesDir, "downloads")
-
-        if (!downloadDir.exists()) {
-            downloadDir.mkdirs()
-            Log.d(TAG, "📁 创建下载目录: ${downloadDir.absolutePath}")
-        }
-
-        Log.d(TAG, "📂 下载目录: ${downloadDir.absolutePath}")
-        return downloadDir
+        Log.d(TAG, "📂 共享下载目录: ${sharedStorage.absolutePath}")
+        return sharedStorage
     }
 
     /**

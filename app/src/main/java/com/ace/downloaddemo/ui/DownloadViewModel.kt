@@ -1,25 +1,30 @@
 package com.ace.downloaddemo.ui
 
+import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ace.downloaddemo.core.storage.FileCleanupManager
 import com.ace.downloaddemo.data.parser.ConfigParser
-import com.ace.downloaddemo.domain.FeatureDownloadManager
+import com.ace.downloaddemo.data.service.DownloadServiceManager
 import com.ace.downloaddemo.domain.model.FeatureDownloadState
 import com.ace.downloaddemo.ui.model.FeatureUIState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class DownloadViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val configParser: ConfigParser,
-    private val featureDownloadManager: FeatureDownloadManager,
-    private val fileCleanupManager: FileCleanupManager
+    private val fileCleanupManager: FileCleanupManager,
+    private val downloadServiceManager: DownloadServiceManager  // 注入ServiceManager
 ) : ViewModel() {
 
     companion object {
@@ -37,7 +42,24 @@ class DownloadViewModel @Inject constructor(
 
     init {
         Log.d(TAG, "🎬 ViewModel初始化")
+
         loadConfig()
+
+        // 监听服务连接状态，连接成功后查询所有Feature状态
+        viewModelScope.launch {
+            downloadServiceManager.isServiceConnected.collect { isConnected ->
+                if (isConnected) {
+                    Log.i(TAG, "✅ 下载服务已连接，查询所有Feature状态")
+                    queryAllStatesFromService()
+                }
+            }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        // 注意：不在这里解绑Service，因为它是Singleton，应该在Application层管理生命周期
+        Log.d(TAG, "🎬 ViewModel销毁")
     }
 
     /**
@@ -69,34 +91,25 @@ class DownloadViewModel @Inject constructor(
                     val files = configParser.extractAllFiles(feature)
                     Log.d(TAG, "📦 Feature #${feature.id}: ${feature.mainTitle} (${files.size}个文件)")
 
-                    // 检查是否已下载完成
-                    val isDownloaded = featureDownloadManager.isFeatureDownloaded(feature.id, files)
-                    val initialState = if (isDownloaded) {
-                        Log.i(TAG, "✅ Feature #${feature.id} 已下载")
-                        FeatureDownloadState.Completed
-                    } else {
-                        Log.d(TAG, "⏳ Feature #${feature.id} 未下载")
-                        FeatureDownloadState.Idle
-                    }
-
                     FeatureUIState(
                         id = feature.id,
                         title = feature.mainTitle,
                         subtitle = feature.subTitle,
-                        downloadState = initialState,
+                        downloadState = FeatureDownloadState.Idle,  // 初始状态，稍后通过Manager查询
                         files = files
                     )
                 }
 
-                Log.i(TAG, "🔗 开始监听各Feature下载状态...")
-                // 监听每个Feature的下载状态
+                // 为每个Feature启动状态监听
                 features.forEach { feature ->
                     viewModelScope.launch {
-                        featureDownloadManager.getFeatureState(feature.id).collect { state ->
+                        downloadServiceManager.observeFeatureState(feature.id).collect { state ->
                             updateFeatureState(feature.id, state)
                         }
                     }
                 }
+
+                Log.i(TAG, "✅ 配置加载完成，等待服务连接后查询状态")
 
             } catch (e: Exception) {
                 Log.e(TAG, "❌ 加载配置失败", e)
@@ -110,19 +123,38 @@ class DownloadViewModel @Inject constructor(
     }
 
     /**
+     * 从服务查询所有 Feature 的当前状态
+     */
+    private suspend fun queryAllStatesFromService() = withContext(Dispatchers.IO) {
+        val currentFeatures = _featuresState.value
+        Log.d(TAG, "🔍 查询 ${currentFeatures.size} 个 Feature 的状态")
+
+        currentFeatures.forEach { feature ->
+            downloadServiceManager.queryFeatureState(feature.id)
+            // 状态会通过observeFeatureState的Flow自动更新到UI
+        }
+    }
+
+    /**
      * 下载Feature
      */
     fun downloadFeature(featureId: Int) {
         Log.i(TAG, "👆 用户点击下载 Feature #$featureId")
-        viewModelScope.launch {
-            val feature = _featuresState.value.find { it.id == featureId }
-            if (feature == null) {
-                Log.e(TAG, "❌ 找不到 Feature #$featureId")
-                return@launch
-            }
 
-            Log.i(TAG, "▶️ 启动下载: ${feature.title}")
-            featureDownloadManager.downloadFeature(featureId, feature.files)
+        val feature = _featuresState.value.find { it.id == featureId }
+        if (feature == null) {
+            Log.e(TAG, "❌ 找不到 Feature #$featureId")
+            return
+        }
+
+        viewModelScope.launch {
+            val result = downloadServiceManager.startDownload(featureId, feature.files)
+            result.onSuccess {
+                Log.i(TAG, "✅ 已通知服务开始下载: ${feature.title}")
+            }.onFailure { error ->
+                Log.e(TAG, "❌ 启动下载失败: ${feature.title}", error)
+                _errorMessage.value = "启动下载失败: ${error.message}"
+            }
         }
     }
 
@@ -131,15 +163,21 @@ class DownloadViewModel @Inject constructor(
      */
     fun retryFeature(featureId: Int) {
         Log.i(TAG, "🔄 用户点击重试 Feature #$featureId")
-        viewModelScope.launch {
-            val feature = _featuresState.value.find { it.id == featureId }
-            if (feature == null) {
-                Log.e(TAG, "❌ 找不到 Feature #$featureId")
-                return@launch
-            }
 
-            Log.i(TAG, "🔁 重新启动下载: ${feature.title}")
-            featureDownloadManager.retryFeature(featureId, feature.files)
+        val feature = _featuresState.value.find { it.id == featureId }
+        if (feature == null) {
+            Log.e(TAG, "❌ 找不到 Feature #$featureId")
+            return
+        }
+
+        viewModelScope.launch {
+            val result = downloadServiceManager.retryDownload(featureId, feature.files)
+            result.onSuccess {
+                Log.i(TAG, "✅ 已通知服务重试下载: ${feature.title}")
+            }.onFailure { error ->
+                Log.e(TAG, "❌ 重试下载失败: ${feature.title}", error)
+                _errorMessage.value = "重试下载失败: ${error.message}"
+            }
         }
     }
 
@@ -148,8 +186,14 @@ class DownloadViewModel @Inject constructor(
      */
     fun cancelFeature(featureId: Int) {
         Log.w(TAG, "🚫 用户取消下载 Feature #$featureId")
+
         viewModelScope.launch {
-            featureDownloadManager.cancelFeature(featureId)
+            val result = downloadServiceManager.cancelDownload(featureId)
+            result.onSuccess {
+                Log.i(TAG, "✅ 已通知服务取消下载")
+            }.onFailure { error ->
+                Log.e(TAG, "❌ 取消下载失败", error)
+            }
         }
     }
 
@@ -214,62 +258,32 @@ class DownloadViewModel @Inject constructor(
                 val features = config.exhibitionInfos.flatMap { it.featureConfigs }
                 Log.i(TAG, "✅ 配置文件解析成功，共 ${features.size} 个Feature")
 
-                // 2. 检查每个Feature是否有更新
-                var totalUpdates = 0
+                // 2. 更新UI状态（通过AIDL查询实际状态）
                 _featuresState.value = features.map { feature ->
                     val files = configParser.extractAllFiles(feature)
-                    val updateResult = featureDownloadManager.checkForUpdates(feature.id, files)
-
-                    if (updateResult.hasUpdates()) {
-                        totalUpdates++
-                        Log.i(TAG, "🔄 Feature #${feature.id} 有更新: ${updateResult.filesToDownload.size} 个文件需要下载")
-                    }
-
-                    // 根据更新检查结果设置状态
-                    val initialState = when {
-                        updateResult.isComplete() -> {
-                            Log.i(TAG, "✅ Feature #${feature.id} 已是最新版本")
-                            FeatureDownloadState.Completed
-                        }
-                        updateResult.hasUpdates() -> {
-                            Log.d(TAG, "⏳ Feature #${feature.id} 需要更新")
-                            FeatureDownloadState.Idle
-                        }
-                        else -> FeatureDownloadState.Idle
-                    }
 
                     FeatureUIState(
                         id = feature.id,
                         title = feature.mainTitle,
                         subtitle = feature.subTitle,
-                        downloadState = initialState,
+                        downloadState = FeatureDownloadState.Idle,  // 初始状态，稍后通过 AIDL 查询
                         files = files
                     )
                 }
 
-                // 3. 清理不再需要的文件
+                // 3. 从服务查询所有Feature的当前状态
+                queryAllStatesFromService()
+
+                // 4. 清理不再需要的文件
                 Log.i(TAG, "🧹 开始清理不再需要的文件...")
                 val cleanupResult = fileCleanupManager.scanAndCleanUnusedFiles(config)
 
                 Log.i(TAG, "🎉 更新检查完成")
-                Log.i(TAG, "📊 共有 $totalUpdates 个Feature需要更新")
 
                 if (cleanupResult.deletedFiles > 0) {
-                    _errorMessage.value = "检查完成：${totalUpdates}个更新，清理${cleanupResult.deletedFiles}个文件，释放${cleanupResult.getFreedSpaceMB()}MB"
-                } else if (totalUpdates > 0) {
-                    _errorMessage.value = "检查完成：发现${totalUpdates}个Feature有更新"
+                    _errorMessage.value = "检查完成，清理${cleanupResult.deletedFiles}个文件，释放${cleanupResult.getFreedSpaceMB()}MB"
                 } else {
-                    _errorMessage.value = "所有Feature均为最新版本"
-                }
-
-                // 4. 重新监听各Feature的下载状态
-                Log.i(TAG, "🔗 重新监听各Feature下载状态...")
-                features.forEach { feature ->
-                    viewModelScope.launch {
-                        featureDownloadManager.getFeatureState(feature.id).collect { state ->
-                            updateFeatureState(feature.id, state)
-                        }
-                    }
+                    _errorMessage.value = "检查完成，所有配置已更新"
                 }
 
             } catch (e: Exception) {
@@ -316,18 +330,26 @@ class DownloadViewModel @Inject constructor(
 
     /**
      * 更新Feature（增量下载）
+     * 通过Manager调用服务进行下载
      */
     fun updateFeature(featureId: Int) {
         Log.i(TAG, "🔄 用户触发更新 Feature #$featureId")
-        viewModelScope.launch {
-            val feature = _featuresState.value.find { it.id == featureId }
-            if (feature == null) {
-                Log.e(TAG, "❌ 找不到 Feature #$featureId")
-                return@launch
-            }
 
+        val feature = _featuresState.value.find { it.id == featureId }
+        if (feature == null) {
+            Log.e(TAG, "❌ 找不到 Feature #$featureId")
+            return
+        }
+
+        viewModelScope.launch {
             Log.i(TAG, "▶️ 启动增量更新: ${feature.title}")
-            featureDownloadManager.updateFeature(featureId, feature.files)
+            val result = downloadServiceManager.startDownload(featureId, feature.files)
+            result.onSuccess {
+                Log.i(TAG, "✅ 已通知服务更新: ${feature.title}")
+            }.onFailure { error ->
+                Log.e(TAG, "❌ 启动更新失败: ${feature.title}", error)
+                _errorMessage.value = "启动更新失败: ${error.message}"
+            }
         }
     }
 }
