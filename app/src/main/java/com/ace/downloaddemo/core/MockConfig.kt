@@ -29,11 +29,29 @@ object MockConfig {
      * 模拟下载速度（毫秒/块）
      * 每下载一个数据块的延迟时间，用于模拟网络速度
      */
-    const val MOCK_DOWNLOAD_DELAY_MS = 100L
+    const val MOCK_DOWNLOAD_DELAY_MS = 20L
 
     /**
      * 模拟下载块大小（字节）
      * 每次模拟下载的数据块大小
      */
-    const val MOCK_CHUNK_SIZE = 100 * 1024L // 100KB
+    const val MOCK_CHUNK_SIZE = 500 * 1024L // 500KB
+
+    /**
+     * 模拟文件总大小（字节）
+     * 每个文件的模拟大小，用于加快测试
+     */
+    const val MOCK_FILE_SIZE = 2 * 1024 * 1024L // 2MB
+
+    /**
+     * 模拟首页资源下载速度（10秒下载完成）
+     * 2MB / 200KB = 10块，每块1000ms = 10秒
+     */
+    const val MOCK_HOME_RESOURCE_DELAY_MS = 1000L
+
+    /**
+     * 模拟首页资源块大小
+     * 2MB / 200KB = 10块，每块1000ms = 10秒
+     */
+    const val MOCK_HOME_RESOURCE_CHUNK_SIZE = 200 * 1024L // 200KB
 }

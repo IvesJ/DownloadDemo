@@ -247,6 +247,67 @@ class AutoDownloadService : Service() {
                     return@launch
                 }
 
+                // 2. 模拟联网请求完成
+                Log.i(TAG, "✅ 联网请求完成")
+
+                // 3. 获取默认车型（第一个车型）
+                val exhibitionInfo = config.exhibitionInfos.firstOrNull()
+                if (exhibitionInfo == null) {
+                    Log.w(TAG, "⚠️ 没有车型配置")
+                }
+
+                // 4. 先下载默认车型首页资源（如果有）
+                if (exhibitionInfo != null) {
+                    val homeResources = configParser.extractHomeResources(exhibitionInfo)
+                    if (homeResources.isNotEmpty()) {
+                        val vehicleName = exhibitionInfo.vehicle ?: "默认车型"
+                        val homeFeatureId = -(exhibitionInfo.hashCode() % 10000)
+
+                        Log.i(TAG, "📥 开始下载默认车型首页资源: $vehicleName")
+
+                        // 更新通知
+                        updateNotification("正在下载默认车型首页资源: $vehicleName", 0)
+
+                        // 监听首页资源下载状态
+                        var homeDownloadCompleted = false
+                        val homeStateJob = launch {
+                            featureDownloadManager.getFeatureState(homeFeatureId).collectLatest { state ->
+                                when (state) {
+                                    is FeatureDownloadState.Downloading -> {
+                                        val progress = (state.progress * 100).toInt()
+                                        updateNotification(
+                                            "下载首页: $vehicleName $progress%",
+                                            progress
+                                        )
+                                    }
+                                    is FeatureDownloadState.Completed -> {
+                                        Log.i(TAG, "✅ 默认车型首页资源下载完成")
+                                        updateNotification("首页资源就绪: $vehicleName", 100)
+                                        homeDownloadCompleted = true
+                                    }
+                                    is FeatureDownloadState.Failed -> {
+                                        Log.e(TAG, "❌ 首页资源下载失败: ${state.error}")
+                                        updateNotification(
+                                            "首页下载失败: ${state.error}",
+                                            0
+                                        )
+                                        homeDownloadCompleted = true
+                                    }
+                                    else -> {}
+                                }
+                            }
+                        }
+
+                        // 启动首页资源下载
+                        featureDownloadManager.downloadFeature(homeFeatureId, homeResources)
+
+                        // 等待首页资源下载完成
+                        while (!homeDownloadCompleted) {
+                            kotlinx.coroutines.delay(500)
+                        }
+                    }
+                }
+
                 // 2. 获取所有Feature
                 val features = config.exhibitionInfos.flatMap { it.featureConfigs }
                 totalFeatures = features.size

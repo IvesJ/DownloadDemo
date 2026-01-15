@@ -29,14 +29,10 @@ class FileManager @Inject constructor(
      * 注意：需要MANAGE_EXTERNAL_STORAGE权限（Android 11+）或WRITE_EXTERNAL_STORAGE权限
      */
     fun getDownloadDir(): File {
-        // 使用设备共享的外部存储根目录，所有用户可访问
+        // 使用应用外部文件目录，这个目录对应用是私有的，不需要权限
         // 路径示例：/storage/emulated/0/Android/data/com.ace.downloaddemo/files/SharedDownloads
-        // 注意：emulated/0 是所有用户的共享存储，不会因用户切换而改变
-        val sharedStorage = File(Environment.getExternalStorageDirectory(),
-            "Android/data/${context.packageName}/files/SharedDownloads")
-
-        // 备选方案：如果需要更通用的共享目录
-        // val sharedStorage = File("/data/media/0/Android/data/${context.packageName}/files/SharedDownloads")
+        val baseDir = context.getExternalFilesDir(null)
+        val sharedStorage = File(baseDir, "SharedDownloads")
 
         if (!sharedStorage.exists()) {
             sharedStorage.mkdirs()

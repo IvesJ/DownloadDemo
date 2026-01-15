@@ -3,6 +3,7 @@ package com.ace.downloaddemo.data.parser
 import android.content.Context
 import com.ace.downloaddemo.data.model.ConfigTab
 import com.ace.downloaddemo.data.model.DownloadConfig
+import com.ace.downloaddemo.data.model.ExhibitionInfo
 import com.ace.downloaddemo.data.model.FeatureConfig
 import com.ace.downloaddemo.data.model.FileInfo
 import com.google.gson.Gson
@@ -109,5 +110,32 @@ class ConfigParser @Inject constructor(
                 countFiles(feature)
             }
         }
+    }
+
+    /**
+     * 从 ExhibitionInfo 提取首页资源文件列表
+     * @param exhibitionInfo 展览信息
+     * @return 首页资源文件列表，如果 homeResourceZipUrl 为空则返回空列表
+     */
+    fun extractHomeResources(exhibitionInfo: ExhibitionInfo): List<FileInfo> {
+        val files = mutableListOf<FileInfo>()
+
+        // 添加首页资源包（如果有）
+        if (!exhibitionInfo.homeResourceZipUrl.isNullOrEmpty() &&
+            !exhibitionInfo.homeResourceZipMD5.isNullOrEmpty()) {
+            files.add(
+                FileInfo(
+                    fileType = 3,
+                    fileName = "home_resource_${exhibitionInfo.id}.zip",
+                    mainTitle = "首页资源包",
+                    subTitle = exhibitionInfo.vehicle ?: "默认",
+                    selectIconName = null,
+                    fileMd5 = exhibitionInfo.homeResourceZipMD5!!,
+                    fileResUrl = exhibitionInfo.homeResourceZipUrl!!
+                )
+            )
+        }
+
+        return files
     }
 }

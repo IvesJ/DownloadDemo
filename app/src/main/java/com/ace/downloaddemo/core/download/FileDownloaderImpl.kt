@@ -230,16 +230,23 @@ class FileDownloaderImpl @Inject constructor(
         // 确保父目录存在
         file.parentFile?.mkdirs()
 
-        // 模拟文件大小（1-5MB随机）
-        val totalSize = (1 * 1024 * 1024L) + (Math.random() * 4 * 1024 * 1024).toLong()
+        // 判断是否是首页资源下载（URL包含 home）
+        val isHomeResource = url.contains("home")
 
-        println("🔵 [模拟下载] 开始下载: ${file.name}, 总大小: ${totalSize / 1024}KB")
+        // 使用固定大小的模拟文件，方便测试
+        val totalSize = MockConfig.MOCK_FILE_SIZE
+
+        // 根据类型选择不同的下载速度
+        val delayMs = if (isHomeResource) MockConfig.MOCK_HOME_RESOURCE_DELAY_MS else MockConfig.MOCK_DOWNLOAD_DELAY_MS
+        val chunkSize = if (isHomeResource) MockConfig.MOCK_HOME_RESOURCE_CHUNK_SIZE else MockConfig.MOCK_CHUNK_SIZE
+
+        Log.i(TAG, "🔵 [模拟下载] 开始下载: ${file.name}, 总大小: ${totalSize / 1024}KB, 类型: ${if (isHomeResource) "首页资源" else "Feature文件"}")
 
         // 检查已下载的大小（支持断点续传模拟）
         var currentDownloaded = if (tempFile.exists()) tempFile.length() else 0L
 
         if (currentDownloaded > 0) {
-            println("🟡 [断点续传] 已下载: ${currentDownloaded / 1024}KB, 继续下载...")
+            Log.i(TAG, "🟡 [断点续传] 已下载: ${currentDownloaded / 1024}KB, 继续下载...")
         }
 
         // 如果已经完成，直接返回成功
@@ -248,7 +255,7 @@ class FileDownloaderImpl @Inject constructor(
                 if (file.exists()) file.delete()
                 tempFile.renameTo(file)
             }
-            println("✅ [模拟下载] 已完成: ${file.name}")
+            Log.i(TAG, "✅ [模拟下载] 已完成: ${file.name}")
             return DownloadResult.Success(savePath)
         }
 
@@ -258,21 +265,28 @@ class FileDownloaderImpl @Inject constructor(
                 // 检查是否被取消
                 if (canceledUrls.contains(url)) {
                     canceledUrls.remove(url)
+                    Log.w(TAG, "⚠️ [模拟下载] 已取消: ${file.name}")
                     return DownloadResult.Canceled
                 }
 
                 // 模拟网络延迟（可配置）
-                delay(MockConfig.MOCK_DOWNLOAD_DELAY_MS)
+                delay(delayMs)
 
                 // 写入模拟数据
-                val bytesToWrite = minOf(MockConfig.MOCK_CHUNK_SIZE, totalSize - currentDownloaded).toInt()
+                val bytesToWrite = minOf(chunkSize, totalSize - currentDownloaded).toInt()
                 val mockData = ByteArray(bytesToWrite) { 0 }
                 output.write(mockData)
 
                 currentDownloaded += bytesToWrite
 
                 // 回调进度
+                val progress = (currentDownloaded * 100 / totalSize).toInt()
                 onProgress(currentDownloaded, totalSize)
+
+                // 每20%打印一次日志
+                if (progress % 20 == 0) {
+                    Log.d(TAG, "📊 [模拟下载] ${file.name}: $progress% (${currentDownloaded / 1024}KB / ${totalSize / 1024}KB)")
+                }
             }
         }
 
@@ -284,7 +298,7 @@ class FileDownloaderImpl @Inject constructor(
             tempFile.renameTo(file)
         }
 
-        println("✅ [模拟下载] 完成: ${file.name}, 总大小: ${currentDownloaded / 1024}KB")
+        Log.i(TAG, "✅ [模拟下载] 完成: ${file.name}, 总大小: ${currentDownloaded / 1024}KB")
         return DownloadResult.Success(savePath)
     }
 

@@ -6,6 +6,10 @@ import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.Spinner
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -15,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.ace.downloaddemo.R
 import com.ace.downloaddemo.databinding.ActivityMainBinding
+import com.ace.downloaddemo.domain.model.VehicleDownloadState
 import com.ace.downloaddemo.service.AutoDownloadService
 import com.ace.downloaddemo.ui.adapter.FeatureListAdapter
 import dagger.hilt.android.AndroidEntryPoint
@@ -26,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: DownloadViewModel by viewModels()
     private lateinit var adapter: FeatureListAdapter
+    private var vehicleAdapter: ArrayAdapter<String>? = null
 
     // 权限请求启动器
     private val requestPermissionLauncher = registerForActivityResult(
@@ -44,6 +50,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupToolbar()
+        setupVehicleSelector()
         setupRecyclerView()
         observeViewModel()
         checkAndRequestPermissions()
@@ -52,6 +59,32 @@ class MainActivity : AppCompatActivity() {
     private fun setupToolbar() {
         binding.toolbar.title = "下载管理"
         setSupportActionBar(binding.toolbar)
+    }
+
+    /**
+     * 设置车辆选择器
+     */
+    private fun setupVehicleSelector() {
+        val vehicleSpinner = binding.spinnerVehicle
+
+        // 初始化 ArrayAdapter
+        vehicleAdapter = ArrayAdapter<String>(
+            this,
+            android.R.layout.simple_spinner_item
+        ).apply {
+            setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+
+        vehicleSpinner.adapter = vehicleAdapter
+
+        // 车型选择监听
+        vehicleSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                viewModel.onVehicleSelected(position)
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -109,6 +142,69 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
+        // 观察可用车型列表
+        lifecycleScope.launch {
+            viewModel.vehicles.collect { vehicleList ->
+                vehicleAdapter?.clear()
+                vehicleAdapter?.addAll(vehicleList)
+                vehicleAdapter?.notifyDataSetChanged()
+            }
+        }
+
+        // 观察首页资源下载状态
+        lifecycleScope.launch {
+            viewModel.vehicleDownloadState.collect { state ->
+                when (state) {
+                    is VehicleDownloadState.Selected -> {
+                        // 车型已选择，隐藏 loading，隐藏 features 列表
+                        binding.layoutLoadingOverlay.visibility = View.GONE
+                        binding.recyclerView.visibility = View.GONE
+                    }
+                    is VehicleDownloadState.Downloading -> {
+                        // 下载中，显示全屏 loading，阻塞 UI
+                        binding.layoutLoadingOverlay.visibility = View.VISIBLE
+                        binding.recyclerView.visibility = View.GONE
+
+                        binding.progressBarLoading.isIndeterminate = false
+                        binding.progressBarLoading.progress = (state.progress * 100).toInt()
+                        binding.tvLoadingProgress.text = "${(state.progress * 100).toInt()}%"
+                        binding.tvLoadingText.text = "正在加载首页资源..."
+
+                        if (state.currentFile.isNotEmpty()) {
+                            binding.tvLoadingFile.text = "当前文件: ${state.currentFile}"
+                            binding.tvLoadingFile.visibility = View.VISIBLE
+                        } else {
+                            binding.tvLoadingFile.visibility = View.GONE
+                        }
+                    }
+                    is VehicleDownloadState.Ready -> {
+                        // 首页资源就绪，隐藏 loading，显示 features 列表
+                        binding.layoutLoadingOverlay.visibility = View.GONE
+                        binding.recyclerView.visibility = View.VISIBLE
+
+                        // 更新标题
+                        binding.toolbar.title = "下载管理 - ${state.vehicleName}"
+                    }
+                    is VehicleDownloadState.Failed -> {
+                        // 下载失败，隐藏 loading，隐藏 features 列表
+                        binding.layoutLoadingOverlay.visibility = View.GONE
+                        binding.recyclerView.visibility = View.GONE
+
+                        Toast.makeText(
+                            this@MainActivity,
+                            "加载首页资源失败: ${state.error}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                    null -> {
+                        // 初始状态，隐藏 loading 和 features 列表
+                        binding.layoutLoadingOverlay.visibility = View.GONE
+                        binding.recyclerView.visibility = View.GONE
+                    }
+                }
+            }
+        }
+
         // 观察Features列表
         lifecycleScope.launch {
             viewModel.featuresState.collect { features ->
@@ -129,6 +225,20 @@ class MainActivity : AppCompatActivity() {
                 error?.let {
                     Toast.makeText(this@MainActivity, it, Toast.LENGTH_LONG).show()
                     viewModel.clearError()
+                }
+            }
+        }
+
+        // 观察默认车型首页下载状态
+        lifecycleScope.launch {
+            viewModel.defaultVehicleHomeReady.collect { isReady ->
+                if (isReady) {
+                    // 默认车型首页下载完成，显示提示
+                    Toast.makeText(
+                        this@MainActivity,
+                        "默认车型首页资源已就绪",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
