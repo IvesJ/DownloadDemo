@@ -85,7 +85,17 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:orientation="vertical"
-            android:gravity="center">
+            android:gravity="center"
+            android:padding="32dp">
+
+            <!-- Brand Logo placeholder -->
+            <ImageView
+                android:id="@+id/ivBrandLogo"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@android:drawable/ic_menu_gallery"
+                android:contentDescription="品牌Logo"
+                android:visibility="gone" />
 
             <ProgressBar
                 android:id="@+id/progressBarLoading"
@@ -119,6 +129,16 @@
                 android:text=""
                 android:textSize="12sp"
                 android:textColor="#999999" />
+
+            <!-- Retry Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnRetry"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="重试"
+                android:visibility="gone"
+                app:icon="@android:drawable/ic_menu_rotate" />
 
         </LinearLayout>
 

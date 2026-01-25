@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.ace.downloaddemo.R
 import com.ace.downloaddemo.databinding.ActivityMainBinding
+import com.ace.downloaddemo.domain.model.HomeLoadingState
 import com.ace.downloaddemo.domain.model.VehicleDownloadState
 import com.ace.downloaddemo.service.AutoDownloadService
 import com.ace.downloaddemo.ui.adapter.FeatureListAdapter
@@ -52,6 +53,7 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupVehicleSelector()
         setupRecyclerView()
+        setupRetryButton()
         observeViewModel()
         checkAndRequestPermissions()
     }
@@ -141,7 +143,39 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupRetryButton() {
+        binding.btnRetry.setOnClickListener {
+            viewModel.retryHomeLoadingFlow()
+        }
+    }
+
     private fun observeViewModel() {
+        // 观察首页加载状态
+        lifecycleScope.launch {
+            viewModel.homeLoadingState.collect { state ->
+                when (state) {
+                    is HomeLoadingState.Initializing -> showInitializingUI()
+                    is HomeLoadingState.LoadingConfig -> showConfigLoadingUI()
+                    is HomeLoadingState.ConfigFailed -> showErrorUI(
+                        state.error,
+                        retryAction = { viewModel.retryHomeLoadingFlow() }
+                    )
+                    is HomeLoadingState.DownloadingHomeResources -> showHomeDownloadingUI(
+                        state.vehicleName,
+                        state.progress,
+                        state.currentFile,
+                        state.completedFiles,
+                        state.totalFiles
+                    )
+                    is HomeLoadingState.DownloadFailed -> showErrorUI(
+                        state.error,
+                        retryAction = { viewModel.retryHomeLoadingFlow() }
+                    )
+                    is HomeLoadingState.Ready -> showHomeReadyUI(state.vehicleName)
+                }
+            }
+        }
+
         // 观察可用车型列表
         lifecycleScope.launch {
             viewModel.vehicles.collect { vehicleList ->
@@ -243,6 +277,97 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    // ==================== 首页加载状态 UI 方法 ====================
+
+    /**
+     * 显示初始化界面（品牌 Logo）
+     */
+    private fun showInitializingUI() {
+        binding.layoutLoadingOverlay.visibility = View.VISIBLE
+        binding.recyclerView.visibility = View.GONE
+        binding.progressBarLoading.visibility = View.VISIBLE
+        binding.progressBarLoading.isIndeterminate = true
+        binding.tvLoadingText.text = "正在初始化..."
+        binding.tvLoadingProgress.visibility = View.GONE
+        binding.tvLoadingFile.visibility = View.GONE
+        binding.btnRetry.visibility = View.GONE
+    }
+
+    /**
+     * 显示配置加载中
+     */
+    private fun showConfigLoadingUI() {
+        binding.layoutLoadingOverlay.visibility = View.VISIBLE
+        binding.recyclerView.visibility = View.GONE
+        binding.progressBarLoading.visibility = View.VISIBLE
+        binding.progressBarLoading.isIndeterminate = true
+        binding.tvLoadingText.text = "正在加载配置..."
+        binding.tvLoadingProgress.visibility = View.GONE
+        binding.tvLoadingFile.visibility = View.GONE
+        binding.btnRetry.visibility = View.GONE
+    }
+
+    /**
+     * 显示首页资源下载进度
+     */
+    private fun showHomeDownloadingUI(
+        vehicleName: String,
+        progress: Float,
+        currentFile: String,
+        completedFiles: Int,
+        totalFiles: Int
+    ) {
+        binding.layoutLoadingOverlay.visibility = View.VISIBLE
+        binding.recyclerView.visibility = View.GONE
+        binding.progressBarLoading.visibility = View.VISIBLE
+        binding.progressBarLoading.isIndeterminate = false
+        binding.progressBarLoading.progress = (progress * 100).toInt()
+        binding.tvLoadingText.text = "正在加载 $vehicleName 首页资源..."
+        binding.tvLoadingProgress.text = "${(progress * 100).toInt()}%"
+        binding.tvLoadingProgress.visibility = View.VISIBLE
+        binding.btnRetry.visibility = View.GONE
+
+        if (currentFile.isNotEmpty()) {
+            binding.tvLoadingFile.text = "当前文件: $currentFile ($completedFiles/$totalFiles)"
+            binding.tvLoadingFile.visibility = View.VISIBLE
+        } else {
+            binding.tvLoadingFile.text = "已下载: $completedFiles/$totalFiles"
+            binding.tvLoadingFile.visibility = View.VISIBLE
+        }
+    }
+
+    /**
+     * 显示错误界面 + 重试按钮
+     */
+    private fun showErrorUI(error: String, retryAction: () -> Unit) {
+        // 显示 loading overlay，但显示错误和重试按钮
+        binding.layoutLoadingOverlay.visibility = View.VISIBLE
+        binding.recyclerView.visibility = View.GONE
+
+        // 隐藏进度条和进度信息
+        binding.progressBarLoading.visibility = View.GONE
+        binding.tvLoadingProgress.visibility = View.GONE
+        binding.tvLoadingFile.visibility = View.GONE
+
+        // 显示错误信息
+        binding.tvLoadingText.text = error
+
+        // 显示重试按钮
+        binding.btnRetry.visibility = View.VISIBLE
+        binding.btnRetry.setOnClickListener { retryAction() }
+    }
+
+    /**
+     * 显示首页就绪（隐藏 loading，显示内容）
+     */
+    private fun showHomeReadyUI(vehicleName: String) {
+        binding.layoutLoadingOverlay.visibility = View.GONE
+        binding.recyclerView.visibility = View.VISIBLE
+        binding.toolbar.title = "下载管理 - $vehicleName"
+    }
+
+    // ==================== 权限相关 ====================
 
     private fun checkAndRequestPermissions() {
         // Android 13+ 不需要存储权限（使用应用私有目录）
